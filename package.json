@@ -1,0 +1,19 @@
+{
+  "name": "wto_backuper",
+  "version": "1.0.0",
+  "description": "Program do wykonania backupów dla drukrani Wydrukujemy.to",
+  "main": "backuper.js",
+  "scripts": {
+    "start": "node backuper.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "backuper"
+  },
+  "author": "BartoszOrzel",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
