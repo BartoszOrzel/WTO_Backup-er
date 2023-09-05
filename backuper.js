@@ -34,7 +34,7 @@ setInterval(function () {
         })
 
         setTimeout(function() {
-            startBackup == true
+            startBackup = true
         }, 1000 * 60 * 120)
     }
     else if (startBackup === false) {

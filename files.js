@@ -89,7 +89,13 @@ module.exports.copyFiles = (filesArray, SOURCE, DESTINATION) => {
                 promiseResults.success.push(result)
             }
         })
-        console.table([{ "Udane transfery": promiseResults.success.length, "Nieudane transfery": promiseResults.errored.length, "Pominięte": promiseResults.skipped.length }])
+        // console.log(JSON.stringify(Object.values(results[0])[0].split("/")[1]))
+        console.log("----------------------------------------------------------------")
+        console.log('Zakończono kopiowanie folderu'+ '\x1b[33m ' + Object.values(results[0])[0].split("/")[1] + '\x1b[0m')
+        console.table([{ "Udane transfery":  promiseResults.success.length , "Nieudane transfery":  promiseResults.errored.length , "Pominięte ":  promiseResults.skipped.length }])
+        console.log("----------------------------------------------------------------")
+        console.log()
+
     })
 
 }
