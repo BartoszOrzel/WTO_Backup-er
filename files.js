@@ -1,6 +1,4 @@
-const fs = require('fs')
-
-
+const fs = require('fs');
 
 module.exports.getFiles = (dir, files = []) => {
     const fileList = fs.readdirSync(dir);
@@ -32,70 +30,182 @@ module.exports.modificationDates = (file, SOURCE, DESTINATION) => {
     }
 }
 
-module.exports.copyFiles = (filesArray, SOURCE, DESTINATION) => {
-    const filesObject = {
-        success: [],
-        errored: [],
-        skipped: []
-    }
-    const copyFilePromise = (source, destination) => {
-        return new Promise((resolve, reject) => {
-            fs.cp(source, destination, (err) => {
-                if (err) {
-                    const errorMessage = `${source} errno: ${err.errno} code: ${err.code} syscall: ${err.syscall}`;
-                    reject(errorMessage);
-                } else {
-                    resolve(destination);
-                }
-            })
-        })
-    }
+module.exports.copyFilesNew = (filesArray, SOURCE, DESTINATION) => {
+    return new Promise((resolve, reject) => {
+        const obietnice = []
 
-    const promises = filesArray.map(file => {
-        let destination = file.replace(SOURCE, DESTINATION);
-        if (this.modificationDates(file, SOURCE, DESTINATION) === false) {
-            return copyFilePromise(file, destination)
-                .then(destination => {
-                    filesObject.success.push(destination)
-                    console.log("done -> ", destination)
-                    return { success: destination }
+        const copyFilePromise = (source, destination) => {
+            return new Promise((resolve, reject) => {
+                fs.cp(source, destination, (err) => {
+                    if (err) {
+                        console.error(`${source} errno: ${err.errno} code: ${err.code} syscall: ${err.syscall}`)
+                        resolve({ errored: source });
+                    } else {
+                        // console.log("success ->", destination )
+                        resolve({ success: destination });
+                    }
                 })
-                .catch(error => {
-                    filesObject.errored.push(error);
-                    console.error(error)
-                    return { errored: error }
-                });
-        } else {
-            filesObject.skipped.push(destination)
-            console.log("skipped ->", destination)
-            return Promise.resolve({ skipped: destination })
+            })
         }
-    })
 
-    Promise.all(promises).then(results => {
-        const promiseResults = {
-            success: [],
-            errored: [],
-            skipped: []
+        const skipFilePromise = (destination) => {
+            return new Promise((resolve, reject) => {
+                if (destination) {
+                    // filesObject.skipped.push(destination)
+                    // console.log("skipped ->", destination )
+                    resolve({ skipped: destination })
+                }
+                else {
+                    reject("Error: brak destynacji")
+                }
+
+
+            })
         }
-        results.forEach(result => {
-            if (Object.keys(result) == "skipped") {
-                promiseResults.skipped.push(result)
-            }
-            else if (Object.keys(result) == "errored") {
-                promiseResults.errored.push(result)
-            }
-            else if (Object.keys(result) == "success") {
-                promiseResults.success.push(result)
+
+        const loop = filesArray.map(file => {
+            let destination = file.replace(SOURCE, DESTINATION);
+            if (this.modificationDates(file, SOURCE, DESTINATION) === false) {
+                const obietnicaKopiowania = copyFilePromise(file, destination)
+                obietnice.push(obietnicaKopiowania)
+            } else {
+                const obietnicaPominiecia = skipFilePromise(destination)
+                obietnice.push(obietnicaPominiecia)
             }
         })
-        // console.log(JSON.stringify(Object.values(results[0])[0].split("/")[1]))
-        console.log("----------------------------------------------------------------")
-        console.log('Zakończono kopiowanie folderu'+ '\x1b[33m ' + Object.values(results[0])[0].split("/")[1] + '\x1b[0m')
-        console.table([{ "Udane transfery":  promiseResults.success.length , "Nieudane transfery":  promiseResults.errored.length , "Pominięte ":  promiseResults.skipped.length }])
-        console.log("----------------------------------------------------------------")
-        console.log()
 
+
+        Promise.all(obietnice)
+            .then(results => {
+                // console.log(results)
+                const promiseResults = {
+                    success: [],
+                    errored: [],
+                    skipped: []
+                }
+                results.forEach(result => {
+                    if (Object.keys(result) == "skipped") {
+                        promiseResults.skipped.push(result)
+                    }
+                    else if (Object.keys(result) == "errored") {
+                        promiseResults.errored.push(result)
+                    }
+                    else if (Object.keys(result) == "success") {
+                        promiseResults.success.push(result)
+                    }
+                })
+                // console.log("----------------------------------------------------------------")
+                // console.log('Zakończono kopiowanie folderu ' + Object.values(results[0])[0].split("/")[1])
+                // console.table([{ "Udane transfery": promiseResults.success.length, "Nieudane transfery": promiseResults.errored.length, "Pominięte ": promiseResults.skipped.length }])
+                // console.log("----------------------------------------------------------------")
+                // console.log()
+                resolve(promiseResults)
+
+            })
+            .catch(errors => {
+                console.error(errors)
+            })
     })
+}
 
+
+
+module.exports.copyFilesByStream = (filesArray, SOURCE, DESTINATION) => {
+    return new Promise((resolve, reject) => {
+        const obietnice = []
+
+        const copyFilePromise = (source, destination) => {
+            return new Promise((resolve, reject) => {
+                // console.time('copying')
+                fs.stat(source, function (err, stat) {
+                    // const filesize = stat.size
+                    // let bytesCopied = 0
+
+                    const readStream = fs.createReadStream(source)
+                    readStream.on('error', function () {
+                        console.log("errored ->", source)
+                        resolve({ errored: source })
+                    })
+
+                    // readStream.on('data', function (buffer) {
+                    //     bytesCopied += buffer.length
+                    //     let porcentage = ((bytesCopied / filesize) * 100).toFixed(2)
+                    //     console.log(porcentage + '%') // run once with this and later with this line commented
+                    // })
+                    readStream.on('end', function () {
+                        // console.timeEnd('end')
+                        console.log("success ->", destination)
+                        resolve({ success: destination })
+                    })
+
+                    const writeStream = fs.createWriteStream(destination)
+                    readStream.pipe(writeStream)
+
+                    writeStream.on("error", () => {
+                        console.log("errored ->", destination)
+                        resolve({ errored: destination })
+                    })
+
+                })
+            })
+        }
+
+        const skipFilePromise = (destination) => {
+            return new Promise((resolve, reject) => {
+                if (destination) {
+                    // filesObject.skipped.push(destination)
+                    console.log("skipped ->", destination)
+                    resolve({ skipped: destination })
+                }
+                else {
+                    reject("Error: brak destynacji")
+                }
+
+
+            })
+        }
+
+        const loop = filesArray.map(file => {
+            let destination = file.replace(SOURCE, DESTINATION);
+            if (this.modificationDates(file, SOURCE, DESTINATION) === false) {
+                const obietnicaKopiowania = copyFilePromise(file, destination)
+                obietnice.push(obietnicaKopiowania)
+            } else {
+                const obietnicaPominiecia = skipFilePromise(destination)
+                obietnice.push(obietnicaPominiecia)
+            }
+        })
+
+
+        Promise.all(obietnice)
+            .then(results => {
+                // console.log(results)
+                const promiseResults = {
+                    success: [],
+                    errored: [],
+                    skipped: []
+                }
+                results.forEach(result => {
+                    if (Object.keys(result) == "skipped") {
+                        promiseResults.skipped.push(result)
+                    }
+                    else if (Object.keys(result) == "errored") {
+                        promiseResults.errored.push(result)
+                    }
+                    else if (Object.keys(result) == "success") {
+                        promiseResults.success.push(result)
+                    }
+                })
+                // console.log("----------------------------------------------------------------")
+                // console.log('Zakończono kopiowanie folderu ' + Object.values(results[0])[0].split("/")[1])
+                // console.table([{ "Udane transfery": promiseResults.success.length, "Nieudane transfery": promiseResults.errored.length, "Pominięte ": promiseResults.skipped.length }])
+                // console.log("----------------------------------------------------------------")
+                // console.log()
+                resolve(promiseResults)
+
+            })
+            .catch(errors => {
+                console.error(errors)
+            })
+    })
 }
